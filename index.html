@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GITAM — Exam Seating Arrangement</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ── Design tokens ── */
+:root {
+  --navy:   #00332E;
+  --blue:   #006B65;
+  --mid:    #0EA89A;
+  --sky:    #E6F4F2;
+  --s1:     #d4edda;
+  --s1b:    #1a6b3c;
+  --s2:     #fff3cd;
+  --s2b:    #856404;
+  --empty:  #f8f9fa;
+  --border: #c8e3df;
+  --text:   #1a2332;
+  --muted:  #64748b;
+  --white:  #ffffff;
+  --radius: 8px;
+  --shadow: 0 2px 12px rgba(0,107,101,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #eef6f5;
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Top bar ── */
+.topbar {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+  color: white;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-brand { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
+.topbar-brand span { opacity: .65; font-weight: 400; font-size: 13px; margin-left: 10px; }
+.topbar-right { display: flex; gap: 10px; align-items: center; }
+
+/* ── Nav tabs ── */
+.nav-tabs {
+  background: var(--white);
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  gap: 0;
+  padding: 0 24px;
+  overflow-x: auto;
+}
+.nav-tab {
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.nav-tab:hover { color: var(--blue); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--mid); }
+
+/* ── Page sections ── */
+.page { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* ── Cards / panels ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.card-title {
+  font-size: 15px; font-weight: 700;
+  color: var(--navy); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 6px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: filter .15s, transform .1s;
+  white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn:active { transform: scale(.97); }
+.btn-primary   { background: var(--blue);  color: white; }
+.btn-success   { background: #1a6b3c; color: white; }
+.btn-warning   { background: #856404; color: white; }
+.btn-danger    { background: #b91c1c; color: white; }
+.btn-ghost     { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+.btn-sm        { padding: 5px 11px; font-size: 12px; }
+
+/* ── Form inputs ── */
+input, select {
+  width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+  border-radius: 6px; font-size: 13px; background: var(--white);
+  color: var(--text); transition: border-color .15s;
+}
+input:focus, select:focus { outline: none; border-color: var(--mid); }
+label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; display: block; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
+.form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; }
+
+/* ── Stats bar ── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  text-align: center; box-shadow: var(--shadow);
+}
+.stat-card .num { font-size: 28px; font-weight: 800; color: var(--navy); }
+.stat-card .lbl { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+.stat-card.green .num { color: var(--s1b); }
+.stat-card.yellow .num { color: var(--s2b); }
+.stat-card.blue .num { color: var(--mid); }
+
+/* ── Room list ── */
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.room-chip {
+  border-radius: 8px;
+  border: 1.5px solid var(--border); background: var(--white);
+  transition: border-color .15s, background .15s, box-shadow .15s;
+  font-size: 13px; user-select: none;
+  overflow: hidden;
+}
+.room-chip:hover { border-color: var(--mid); box-shadow: 0 2px 8px rgba(0,107,101,.12); }
+.room-chip.checked { border-color: var(--mid); background: var(--sky); }
+.room-chip.checked .room-chip-header { background: #cdeae6; }
+.room-chip-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  background: var(--white);
+  transition: background .15s;
+}
+.room-chip.checked .room-chip-header { background: #cdeae6; }
+.room-chip input[type=checkbox] { width: auto; accent-color: var(--blue); flex-shrink: 0; }
+.room-chip .room-name { font-weight: 700; font-size: 13px; }
+.room-chip .room-meta { font-size: 11px; color: var(--muted); }
+.room-chip .room-seat-count {
+  margin-left: auto; font-size: 11px; font-weight: 700;
+  color: var(--blue); white-space: nowrap;
+}
+.room-layout-editor {
+  border-top: 1px solid var(--border);
+  padding: 8px 12px 10px;
+  background: rgba(255,255,255,.7);
+}
+.room-layout-editor .layout-title {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: 6px;
+}
+.col-inputs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.col-input-group {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.col-input-group label {
+  font-size: 9px; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: .3px;
+  margin: 0;
+}
+.col-bench-input {
+  width: 46px; padding: 4px 4px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 5px;
+  font-size: 12px; font-weight: 700; color: var(--navy);
+  background: var(--white);
+  -moz-appearance: textfield;
+}
+.col-bench-input::-webkit-inner-spin-button,
+.col-bench-input::-webkit-outer-spin-button { opacity: 1; }
+.col-bench-input:focus { border-color: var(--mid); outline: none; }
+.reset-layout-btn {
+  font-size: 10px; color: var(--muted); background: none;
+  border: none; cursor: pointer; padding: 0; margin-left: auto;
+  text-decoration: underline;
+}
+.reset-layout-btn:hover { color: var(--blue); }
+
+/* ── Seating grid ── */
+.seating-area { overflow-x: auto; }
+
+.room-block {
+  margin-bottom: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.room-header {
+  background: var(--navy);
+  color: white;
+  padding: 12px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+}
+.room-header-left { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.room-header .rnum { font-size: 18px; font-weight: 800; }
+.room-header .rmeta { font-size: 12px; opacity: .7; }
+.room-header .room-datetime {
+  opacity: 1;
+  background: rgba(255,255,255,.12);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.room-header-counts { display: flex; gap: 12px; font-size: 12px; align-items: center; flex-wrap: wrap; }
+.room-header-counts .pill {
+  padding: 2px 10px; border-radius: 20px; font-weight: 700;
+}
+.pill-s1 { background: var(--s1); color: var(--s1b); }
+.pill-s2 { background: var(--s2); color: var(--s2b); }
+
+.cols-wrapper {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  background: var(--white);
+}
+
+.col-block {
+  flex: 1;
+  min-width: 180px;
+  border-right: 2px solid var(--border);
+}
+.col-block:last-child { border-right: none; }
+
+.col-header {
+  background: var(--blue);
+  color: white;
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.seat-subheader {
+  display: grid;
+  grid-template-columns: 38px 1fr 1fr;
+  gap: 0;
+  background: var(--sky);
+  border-bottom: 1px solid var(--border);
+}
+.seat-subheader > div {
+  padding: 5px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.seat-subheader .bench-lbl-h { background: #cde6e2; color: #2f5a55; }
+
+.bench-row {
+  display: grid;
+  grid-template-columns: 38px 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid #edf2f7;
+}
+.bench-row:last-child { border-bottom: none; }
+
+.bench-lbl {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #4a5568;
+  background: #f7fafc;
+  border-right: 1px solid var(--border);
+  padding: 4px 2px;
+}
+
+.seat-cell {
+  padding: 5px 4px;
+  text-align: center;
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  border-right: 1px solid #edf2f7;
+  cursor: default;
+  transition: filter .1s;
+  word-break: break-all;
+  line-height: 1.2;
+}
+.seat-cell:last-child { border-right: none; }
+.seat-cell:hover { filter: brightness(.93); }
+.seat-cell.s1 { background: var(--s1); color: var(--s1b); }
+.seat-cell.s2 { background: var(--s2); color: var(--s2b); }
+.seat-cell.empty { background: var(--empty); color: #c0c8d0; font-style: italic; font-size: 10px; }
+.seat-cell.reserved { background: #f3f0ff; color: #a78bfa; font-style: italic; font-size: 9px; border: 1px dashed #c4b5fd; }
+.seat-reg { font-size: 11px; font-weight: 700; }
+.seat-course { font-size: 9px; font-weight: 600; opacity: .75; letter-spacing: .2px; font-family: 'Segoe UI', sans-serif; }
+
+/* ── Search result ── */
+.search-result {
+  background: var(--sky);
+  border: 2px solid var(--mid);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-top: 16px;
+  display: none;
+}
+.search-result.show { display: block; }
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin-top: 12px; }
+.result-row { display: flex; flex-direction: column; }
+.result-row .rkey { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.result-row .rval { font-size: 15px; font-weight: 700; color: var(--navy); }
+.seat-badge {
+  display: inline-block;
+  background: var(--navy); color: white;
+  font-family: monospace; font-size: 14px; font-weight: 700;
+  padding: 6px 14px; border-radius: 6px; margin-top: 8px;
+  letter-spacing: .5px;
+}
+
+/* ── Table ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  background: var(--navy); color: white; padding: 10px 12px;
+  text-align: left; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:nth-child(even) td { background: #f1faf9; }
+.data-table tr:hover td { background: var(--sky); }
+
+/* ── Badge / tag ── */
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+}
+.tag-s1 { background: var(--s1); color: var(--s1b); }
+.tag-s2 { background: var(--s2); color: var(--s2b); }
+
+/* ── Utility ── */
+.flex { display: flex; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.mb-1 { margin-bottom: 8px; }
+.text-muted { color: var(--muted); font-size: 12px; }
+.text-center { text-align: center; }
+.legend {
+  display: flex; gap: 16px; align-items: center;
+  font-size: 12px; margin-bottom: 16px;
+}
+.legend-dot {
+  width: 12px; height: 12px; border-radius: 3px; display: inline-block;
+}
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  color: var(--muted); font-size: 15px;
+}
+.empty-state svg { margin-bottom: 12px; }
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--navy); color: white;
+  padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 999;
+  transform: translateY(80px); opacity: 0;
+  transition: transform .3s, opacity .3s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.progress-wrap { background: var(--border); border-radius: 999px; height: 6px; margin: 12px 0; overflow: hidden; }
+.progress-bar { background: var(--mid); height: 100%; border-radius: 999px; transition: width .3s; }
+.section-title {
+  font-size: 20px; font-weight: 800; color: var(--navy);
+  margin-bottom: 4px;
+}
+.section-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+/* ── Dashboard hero ── */
+.hero {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 60%, var(--mid) 100%);
+  border-radius: var(--radius);
+  color: white;
+  padding: 28px 32px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.hero-text h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.hero-text p { font-size: 13px; opacity: .75; }
+.hero-meta { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.hero-tag {
+  background: rgba(255,255,255,.15);
+  padding: 3px 12px; border-radius: 20px; font-size: 12px;
+}
+.hero-actions { display: flex; gap: 10px; flex-direction: column; align-items: flex-end; }
+@media (max-width: 700px) {
+  .hero { flex-direction: column; }
+  .hero-actions { flex-direction: row; align-items: flex-start; }
+  .form-row, .form-row.triple { grid-template-columns: 1fr; }
+}
+
+/* ── File drop zone ── */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 32px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--empty);
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--mid); background: var(--sky);
+}
+.drop-zone input { display: none; }
+.drop-zone-icon { font-size: 32px; margin-bottom: 8px; }
+.drop-zone p { color: var(--muted); font-size: 13px; }
+.drop-zone strong { color: var(--blue); cursor: pointer; }
+
+/* ── Building accordion ── */
+.building-accordion { margin-bottom: 12px; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+.building-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px;
+  background: var(--navy); color: white;
+  cursor: pointer; user-select: none;
+  transition: background .15s;
+}
+.building-header:hover { background: var(--blue); }
+.building-header .bh-icon { font-size: 16px; }
+.building-header .bh-name { font-size: 14px; font-weight: 800; flex: 1; }
+.building-header .bh-stats { font-size: 12px; opacity: .75; display: flex; gap: 14px; }
+.building-header .bh-chevron { font-size: 13px; transition: transform .2s; }
+.building-header.open .bh-chevron { transform: rotate(180deg); }
+.building-rooms {
+  display: none;
+  padding: 12px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+}
+.building-rooms.open { display: block; }
+.building-sel-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+.building-sel-row span { font-size: 12px; color: var(--muted); flex: 1; }
+
+/* ── Toggle switch ── */
+.toggle-label {
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; user-select: none;
+}
+.toggle-switch { position: relative; display: inline-block; flex-shrink: 0; }
+.toggle-switch input {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+.toggle-track {
+  display: block; width: 46px; height: 26px;
+  border-radius: 26px; background: var(--border);
+  transition: background .2s;
+  position: relative; cursor: pointer;
+}
+.toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: white; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  transition: left .2s;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--blue); }
+.toggle-switch input:checked + .toggle-track .toggle-knob { left: 23px; }
+.toggle-text { display: flex; flex-direction: column; gap: 1px; }
+.toggle-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.toggle-desc  { font-size: 11px; color: var(--muted); }
+
+/* ── Edit mode ── */
+.seat-cell.editable { cursor: pointer; position: relative; }
+.seat-cell.editable:hover::after {
+  content: '✏';
+  position: absolute; top: 2px; right: 3px;
+  font-size: 9px; opacity: .5;
+}
+.room-block.edit-mode .seat-cell.editable:hover {
+  outline: 2px dashed var(--mid); outline-offset: -2px;
+}
+.edit-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fef9c3; color: #713f12;
+  border: 1px solid #fde68a; border-radius: 4px;
+  padding: 2px 8px; font-size: 11px; font-weight: 700;
+}
+
+/* ── Edit mode ── */
+.seat-cell.edit-mode {
+  cursor: pointer;
+  outline: 2px dashed transparent;
+  outline-offset: -2px;
+  transition: outline-color .15s, filter .15s;
+}
+.seat-cell.edit-mode:hover { outline-color: var(--mid); filter: brightness(.92); }
+.seat-cell.edit-mode.selected {
+  outline: 2.5px solid var(--mid);
+  box-shadow: 0 0 0 3px rgba(14,168,154,.25);
+  filter: brightness(.88);
+}
+.room-header .edit-btn {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.35);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.room-header .edit-btn:hover { background: rgba(255,255,255,.28); }
+.room-header .edit-btn.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #1a1a1a;
+}
+
+/* ── Modal ── */
+.modal-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,30,27,.55);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalIn .2s ease;
+}
+@keyframes modalIn {
+  from { transform: translateY(20px) scale(.97); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+.modal-header {
+  background: var(--navy); color: white;
+  padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header h2 { font-size: 16px; font-weight: 800; }
+.modal-close {
+  background: none; border: none; color: white;
+  font-size: 22px; cursor: pointer; line-height: 1;
+  opacity: .7; transition: opacity .15s;
+}
+.modal-close:hover { opacity: 1; }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 10px; justify-content: flex-end;
+  background: #f1faf9;
+}
+
+/* Seat edit grid inside modal */
+.modal-col-block { margin-bottom: 20px; }
+.modal-col-title {
+  font-size: 12px; font-weight: 800; color: var(--blue);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--sky);
+}
+.modal-bench-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.modal-bench-lbl {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-align: center;
+}
+.seat-select {
+  font-size: 12px; padding: 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+}
+.seat-select.s1-sel { background: var(--s1); border-color: #a3d9b1; }
+.seat-select.s2-sel { background: var(--s2); border-color: #f0c060; }
+.seat-select.empty-sel { color: var(--muted); }
+
+/* ── Print styles ── */
+@media print {
+  .topbar, .nav-tabs, .no-print { display: none !important; }
+  .page { display: block !important; padding: 0; }
+  .room-block { page-break-after: always; box-shadow: none; border: 1px solid #ccc; }
+  body { background: white; }
+  footer { color: #333 !important; background: #f1faf9 !important; border-top: 1px solid #ccc !important; }
+  footer strong { color: #006B65 !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══ SEAT EDIT MODAL ═══ -->
+<div class="modal-backdrop" id="editModalBackdrop" onclick="closeEditModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="editModalTitle">Edit Seats — Room —</h2>
+      <button class="modal-close" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="editModalBody"></div>
+    <div class="modal-footer">
+      <span style="flex:1;font-size:12px;color:var(--muted)">Reassign seats using the dropdowns. Empty = vacant.</span>
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-success" onclick="applyRoomEdits()">✓ Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD ROOM MODAL ═══ -->
+<div class="modal-backdrop" id="addRoomModalBackdrop" onclick="closeAddRoomModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>➕ Add New Room</h2>
+      <button class="modal-close" onclick="closeAddRoomModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Room Number *</label>
+          <input type="text" id="newRoomNumber" placeholder="e.g. 701">
+        </div>
+        <div class="form-group">
+          <label>Room Type</label>
+          <select id="newRoomType">
+            <option>Gallery</option>
+            <option>Flat</option>
+            <option>Lab</option>
+            <option>Seminar Hall</option>
+            <option>Auditorium</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Building</label>
+          <input type="text" id="newRoomBuilding" placeholder="e.g. ICT Bhavan">
+        </div>
+        <div class="form-group">
+          <label>Floor</label>
+          <input type="text" id="newRoomFloor" placeholder="e.g. Seventh">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department</label>
+          <input type="text" id="newRoomDept" placeholder="e.g. CSE">
+        </div>
+        <div class="form-group">
+          <label>Number of Columns</label>
+          <input type="number" id="newRoomCols" min="1" max="8" value="4" oninput="renderNewRoomColInputs()">
+        </div>
+      </div>
+      <div style="margin-top:6px">
+        <div class="layout-title" style="margin-bottom:6px">Benches per column</div>
+        <div class="col-inputs" id="newRoomColInputs"></div>
+      </div>
+      <div id="newRoomError" class="mt-1" style="color:#b91c1c;font-size:12px;font-weight:600;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <span style="flex:1;font-size:12px;color:var(--muted)">New room is added to the list, selected by default.</span>
+      <button class="btn btn-ghost" onclick="closeAddRoomModal()">Cancel</button>
+      <button class="btn btn-success" onclick="submitNewRoom()">➕ Add Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-brand">
+    GITAM School of Technology
+    <span>Exam Seating Arrangement System</span>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-ghost btn-sm" onclick="printSeating()" id="printBtn" style="display:none;color:white;border-color:rgba(255,255,255,.4)">🖨 Print</button>
+  </div>
+</div>
+
+<!-- Nav tabs -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('setup')">⚙️ Setup</button>
+  <button class="nav-tab" onclick="switchTab('seating')">🏛 Seating Grid</button>
+  <button class="nav-tab" onclick="switchTab('search')">🔍 Find My Seat</button>
+  <button class="nav-tab" onclick="switchTab('list')">📋 Full List</button>
+</div>
+
+<!-- ═══════════════════ SETUP PAGE ═══════════════════ -->
+<div class="page active" id="page-setup">
+
+  <div class="hero">
+    <div class="hero-text">
+      <h1 id="hero-title">Mid Semester Examination</h1>
+      <p id="hero-sub">GITAM School of Technology, Visakhapatnam · 530 045</p>
+      <div class="hero-meta" id="hero-meta">
+        <span class="hero-tag" id="hero-date-tag">Set exam date below</span>
+        <span class="hero-tag" id="hero-session-tag">Session: —</span>
+        <span class="hero-tag" id="hero-rooms-tag">92 rooms loaded</span>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="btn btn-success" onclick="generateSeating()">⚡ Generate Seating</button>
+      <button class="btn btn-primary btn-sm" onclick="exportExcel()">📊 Export Excel</button>
+    </div>
+  </div>
+
+  <!-- Exam info -->
+  <div class="card">
+    <div class="card-title">📝 Examination Details</div>
+    <div class="form-row triple">
+      <div class="form-group">
+        <label>Exam Name</label>
+        <input type="text" id="examName" value="Mid Semester Examination" oninput="updateHero()">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="examDate" oninput="updateHero()">
+      </div>
+      <div class="form-group">
+        <label>Session / Timing</label>
+        <div class="flex gap-2">
+          <select id="examSessionPreset" onchange="applySessionPreset()" style="flex:0 0 92px">
+            <option value="FN (9:30 AM – 11:30 AM)">FN</option>
+            <option value="AN (1:30 PM – 3:30 PM)">AN</option>
+            <option value="FN & AN (Both)">Both</option>
+            <option value="custom">Custom…</option>
+          </select>
+          <input type="text" id="examSession" value="FN (9:30 AM – 11:30 AM)" oninput="updateHero()" style="flex:1" placeholder="e.g. FN (9:30 AM – 11:30 AM)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Seating mode options -->
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:14px;display:flex;gap:28px;flex-wrap:wrap">
+
+      <label class="toggle-label">
+        <span class="toggle-switch">
+          <input type="checkbox" id="singleSeatMode" onchange="syncToggle('singleSeatMode')">
+          <span class="toggle-track"><span class="toggle-knob"></span></span>
+        </span>
+        <span class="toggle-text">
+          <span class="toggle-title">Single student per bench</span>
+          <span class="toggle-desc">One student per bench — second seat always vacant</span>
+        </span>
+      </label>
+
+      <label class="toggle-label">
+        <span class="toggle-switch">
+          <input type="checkbox" id="diffCourseMode" checked onchange="syncToggle('diffCourseMode')">
+          <span class="toggle-track"><span class="toggle-knob"></span></span>
+        </span>
+        <span class="toggle-text">
+          <span class="toggle-title">No same course on same bench</span>
+          <span class="toggle-desc">S1 and S2 on every bench will have different course codes</span>
+        </span>
+      </label>
+
+    </div>
+  </div>
+
+  <!-- Student import -->
+  <div class="form-row">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">🟢 Slot 1 Students</div>
+      <div class="drop-zone" id="dz1" onclick="document.getElementById('file1').click()" ondragover="onDragOver(event,'dz1')" ondragleave="onDragLeave('dz1')" ondrop="onDrop(event,1)">
+        <input type="file" id="file1" accept=".xlsx,.xls,.csv" onchange="loadStudents(event,1)">
+        <div class="drop-zone-icon">📂</div>
+        <p>Drop Excel / CSV here or <strong>browse</strong></p>
+        <p class="text-muted mt-1">Columns: Registration number, Student name, Branch, Semester…</p>
+      </div>
+      <div id="s1-status" class="mt-2 text-muted text-center"></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">🟡 Slot 2 Students</div>
+      <div class="drop-zone" id="dz2" onclick="document.getElementById('file2').click()" ondragover="onDragOver(event,'dz2')" ondragleave="onDragLeave('dz2')" ondrop="onDrop(event,2)">
+        <input type="file" id="file2" accept=".xlsx,.xls,.csv" onchange="loadStudents(event,2)">
+        <div class="drop-zone-icon">📂</div>
+        <p>Drop Excel / CSV here or <strong>browse</strong></p>
+        <p class="text-muted mt-1">Same column structure as Slot 1</p>
+      </div>
+      <div id="s2-status" class="mt-2 text-muted text-center"></div>
+    </div>
+  </div>
+
+  <!-- Room selector -->
+  <div class="card mt-2">
+    <div class="flex-between mb-1">
+      <div class="card-title" style="margin-bottom:0">🏫 Select Rooms</div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary btn-sm" onclick="openAddRoomModal()">➕ Add Room</button>
+        <button class="btn btn-ghost btn-sm" onclick="selectAllRooms(true)">Select All</button>
+        <button class="btn btn-ghost btn-sm" onclick="selectAllRooms(false)">Deselect All</button>
+        <input type="text" id="roomSearch" placeholder="Search rooms…" style="width:160px;padding:6px 10px;font-size:12px" oninput="filterRooms()">
+      </div>
+    </div>
+    <div class="text-muted mb-1" id="room-sel-stats">Loading rooms…</div>
+    <div id="roomGrid"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="num" id="st-rooms">0</div><div class="lbl">Rooms Selected</div></div>
+    <div class="stat-card green"><div class="num" id="st-s1">0</div><div class="lbl">Slot 1 Students</div></div>
+    <div class="stat-card yellow"><div class="num" id="st-s2">0</div><div class="lbl">Slot 2 Students</div></div>
+    <div class="stat-card blue"><div class="num" id="st-seats">0</div><div class="lbl">Total Seats</div></div>
+    <div class="stat-card"><div class="num" id="st-seated">—</div><div class="lbl">Students Seated</div></div>
+    <div class="stat-card"><div class="num" id="st-vacant">—</div><div class="lbl">Vacant Seats</div></div>
+  </div>
+
+  <div class="progress-wrap" id="genProgress" style="display:none">
+    <div class="progress-bar" id="genBar" style="width:0%"></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ SEATING GRID PAGE ═══════════════════ -->
+<div class="page" id="page-seating">
+  <div class="flex-between mb-1 no-print">
+    <div>
+      <div class="section-title">Seating Grid</div>
+      <div class="section-sub">Physical layout — each column shows benches left-to-right</div>
+    </div>
+    <div class="flex gap-2">
+      <input type="text" id="seatingRoomFilter" placeholder="Filter room…" style="width:140px" oninput="filterSeatingView()">
+      <button class="btn btn-primary btn-sm" onclick="printSeating()">🖨 Print All</button>
+    </div>
+  </div>
+  <div class="legend no-print">
+    <span><span class="legend-dot" style="background:var(--s1);border:1px solid #a3d9b1"></span> Slot 1 (left seat)</span>
+    <span><span class="legend-dot" style="background:var(--s2);border:1px solid #f0c060"></span> Slot 2 (right seat)</span>
+    <span><span class="legend-dot" style="background:var(--empty);border:1px solid #ccc"></span> Vacant</span>
+    <span><span class="legend-dot" style="background:#f3f0ff;border:1px dashed #c4b5fd"></span> Single-seat mode (reserved)</span>
+  </div>
+  <div id="seatingGridContainer">
+    <div class="empty-state">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <div>No seating generated yet.</div>
+      <div class="text-muted">Go to Setup → Generate Seating</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ SEARCH PAGE ═══════════════════ -->
+<div class="page" id="page-search">
+  <div class="section-title">Find My Seat</div>
+  <div class="section-sub">Enter your registration number to find your room and bench</div>
+
+  <div class="card" style="max-width:520px">
+    <div class="flex gap-2">
+      <input type="text" id="searchInput" placeholder="e.g. 21CSE001" style="font-size:16px;padding:11px 14px"
+        oninput="liveSearch()" onkeydown="if(event.key==='Enter')liveSearch()">
+      <button class="btn btn-primary" onclick="liveSearch()">Search</button>
+    </div>
+    <div id="searchResult" class="search-result"></div>
+    <div id="searchNotFound" class="mt-2 text-muted text-center" style="display:none">
+      No seat found for that registration number. Make sure seating has been generated.
+    </div>
+  </div>
+
+  <div class="card mt-2" style="max-width:520px">
+    <div class="card-title">💡 How to read your seat</div>
+    <div style="font-size:13px;line-height:1.8;color:var(--muted)">
+      Your seat code looks like: <code style="background:#eef6f5;padding:2px 6px;border-radius:4px;font-size:12px">Room105-C2-B4-S1</code><br>
+      <strong>Room 105</strong> — the room number<br>
+      <strong>C2</strong> — Column 2 (count from the left wall)<br>
+      <strong>B4</strong> — Bench 4 in that column (count from front)<br>
+      <strong>S1</strong> — Left seat &nbsp;|&nbsp; <strong>S2</strong> — Right seat
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ LIST PAGE ═══════════════════ -->
+<div class="page" id="page-list">
+  <div class="flex-between mb-1">
+    <div>
+      <div class="section-title">Full Seating List</div>
+      <div class="section-sub" id="listCount">No seating generated</div>
+    </div>
+    <div class="flex gap-2">
+      <input type="text" id="listSearch" placeholder="Search name, reg, room…" style="width:200px" oninput="filterList()">
+      <select id="listSlotFilter" style="width:110px" onchange="filterList()">
+        <option value="">All Slots</option>
+        <option value="1">Slot 1</option>
+        <option value="2">Slot 2</option>
+      </select>
+      <select id="listRoomFilter" style="width:130px" onchange="filterList()">
+        <option value="">All Rooms</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="exportExcel()">📊 Export</button>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="data-table" id="seatingTable">
+      <thead>
+        <tr>
+          <th>#</th><th>Reg No</th><th>Student Name</th><th>Branch</th>
+          <th>Course Code</th><th>Semester</th><th>Slot</th><th>Room</th><th>Column</th><th>Bench</th><th>Seat</th><th>Seat Code</th><th>Exam Date / Session</th>
+        </tr>
+      </thead>
+      <tbody id="seatingTableBody"></tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="listEmpty">
+    Generate seating first in the Setup tab.
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  EMBEDDED ROOM DATA (from Seating_Plan_Master Excel)
+// ═══════════════════════════════════════════════════════
+const ROOMS_DATA = [{"room":"105","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"106","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"107","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"111","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"112","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":5,"4":6}},{"room":"113","building":"ICT Bhavan","floor":"First","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":5,"4":6}},{"room":"118","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6}},{"room":"119","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6}},{"room":"122","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":7,"2":6,"3":7}},{"room":"126","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6}},{"room":"132","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":5,"2":5,"3":6}},{"room":"133","building":"ICT Bhavan","floor":"First","type":"Flat","dept":"CSE","layout":{"1":6,"2":5,"3":6}},{"room":"205","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"206","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"207","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":5,"4":6}},{"room":"216","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"217","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"218","building":"ICT Bhavan","floor":"Second","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"223","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"224","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":6,"2":7,"3":7}},{"room":"227","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"228","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"231","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":8,"2":7,"3":7}},{"room":"237","building":"ICT Bhavan","floor":"Second","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"305","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"306","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"307","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"315","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"316","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"317","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"318","building":"ICT Bhavan","floor":"Third","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"323","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"324","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"327","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"328","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"331","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":6,"3":8}},{"room":"337","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":5,"2":5,"3":6}},{"room":"338","building":"ICT Bhavan","floor":"Third","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"405","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"406","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"407","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"416","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"417","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"418","building":"ICT Bhavan","floor":"Fourth","type":"Gallery","dept":"EECE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"423","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":5,"2":6,"3":6}},{"room":"424","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":5,"2":6,"3":6}},{"room":"427","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":7,"2":7,"3":7}},{"room":"428","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":7,"2":8,"3":8}},{"room":"431","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":8,"2":7,"3":7}},{"room":"438","building":"ICT Bhavan","floor":"Fourth","type":"Flat","dept":"EECE","layout":{"1":9,"2":8,"3":7}},{"room":"505","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"506","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"507","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"508","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"515","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"516","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"517","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"518","building":"ICT Bhavan","floor":"Fifth","type":"Gallery","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"523","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":7,"2":8,"3":8}},{"room":"524","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"527","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"531","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":7,"2":8,"3":8}},{"room":"538","building":"ICT Bhavan","floor":"Fifth","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":8}},{"room":"602.A","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":10,"3":10,"4":13}},{"room":"602.B","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":8,"3":8,"4":13}},{"room":"603A","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"603B","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":7,"4":6}},{"room":"604","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":6,"4":6}},{"room":"605","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":7,"2":5,"3":6,"4":6}},{"room":"606","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":5,"3":5,"4":6}},{"room":"607","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":7,"2":6,"3":5,"4":6}},{"room":"608A","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":5,"3":5,"4":8}},{"room":"608B","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":4,"2":5,"3":5,"4":6}},{"room":"612","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":8,"2":7,"3":8}},{"room":"613","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":6,"2":6,"3":8}},{"room":"617","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":8,"2":7,"3":8}},{"room":"620","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":8,"2":8,"3":11}},{"room":"627","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"CSE","layout":{"1":7,"2":7,"3":7}},{"room":"609A","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"Exam Cell","layout":{"1":18,"2":18,"3":18,"4":18,"5":18,"6":18}},{"room":"609B","building":"ICT Bhavan","floor":"Sixth","type":"Flat","dept":"Exam Cell","layout":{"1":18,"2":18,"3":18,"4":18,"5":18,"6":18}},{"room":"CB-401","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":5}},{"room":"CB-402","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":4,"3":5,"4":6}},{"room":"CB-403","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":4,"2":4,"3":4,"4":6}},{"room":"CB-408","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"CB-411","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"CB-416","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"CIVIL","layout":{"1":4,"2":6,"3":5,"4":6}},{"room":"CB-417","building":"Cotton Bhavan","floor":"Third","type":"Flat","dept":"CIVIL","layout":{"1":5,"2":6,"3":5,"4":5}},{"room":"CB-302","building":"Cotton Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":7,"2":5,"3":5,"4":8}},{"room":"CB-307","building":"Cotton Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"CB-308","building":"Cotton Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":7,"2":6,"3":5,"4":6}},{"room":"CB-314","building":"Cotton Bhavan","floor":"Second","type":"Flat","dept":"CIVIL","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"CB-315","building":"Cotton Bhavan","floor":"Second","type":"Flat","dept":"CIVIL","layout":{"1":6,"2":6,"3":6,"4":5}},{"room":"VB-401","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":5}},{"room":"VB-402","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":4,"3":5,"4":6}},{"room":"VB-403","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":4,"2":4,"3":4,"4":6}},{"room":"VB-408","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"VB-411","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"MECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"VB-416","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"CIVIL","layout":{"1":4,"2":6,"3":5,"4":6}},{"room":"VB-417","building":"Visweswara Bhavan","floor":"Third","type":"Flat","dept":"CIVIL","layout":{"1":5,"2":6,"3":5,"4":5}},{"room":"VB-302","building":"Visweswara Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":7,"2":5,"3":5,"4":8}},{"room":"VB-307","building":"Visweswara Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"VB-308","building":"Visweswara Bhavan","floor":"Second","type":"Flat","dept":"BIOTECH","layout":{"1":7,"2":6,"3":5,"4":6}},{"room":"VB-314","building":"Visweswara Bhavan","floor":"Second","type":"Flat","dept":"CIVIL","layout":{"1":5,"2":5,"3":5,"4":6}},{"room":"VB-315","building":"Visweswara Bhavan","floor":"Second","type":"Flat","dept":"CIVIL","layout":{"1":6,"2":6,"3":6,"4":5}}];
+
+// ═══════════════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  slot1: [],
+  slot2: [],
+  seating: [],
+  selectedRooms: new Set(ROOMS_DATA.map(r => r.room)),
+};
+
+// Edit modal state
+let editState = {
+  room: null,         // room number being edited
+  drafts: {},         // {col_bench_pos: studentReg or ''}  — working copy
+};
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  buildRoomGrid();
+  updateStats();
+  updateHero();
+  document.getElementById('examDate').valueAsDate = new Date();
+  updateHero();
+});
+
+// ═══════════════════════════════════════════════════════
+//  TAB NAVIGATION
+// ═══════════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'seating') renderSeatingGrid();
+  if (id === 'list') renderList();
+}
+
+// ═══════════════════════════════════════════════════════
+//  HERO UPDATE
+// ═══════════════════════════════════════════════════════
+function updateHero() {
+  const name = document.getElementById('examName').value || 'Examination';
+  const date = document.getElementById('examDate').value;
+  const session = document.getElementById('examSession').value;
+  document.getElementById('hero-title').textContent = name;
+  document.getElementById('hero-date-tag').textContent = date
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric'})
+    : 'Date not set';
+  document.getElementById('hero-session-tag').textContent = 'Session: ' + (session.split(' ')[0] || session || '—');
+  document.getElementById('hero-rooms-tag').textContent = ROOMS_DATA.length + ' rooms · 3 buildings';
+}
+
+// CSS handles toggle visuals via input:checked — syncToggle is kept for safety
+function syncToggle(id) {
+  // Visual state is handled entirely by CSS :checked selector — nothing to do
+}
+
+// Apply a session preset, or focus the input for custom typing
+function applySessionPreset() {
+  const preset = document.getElementById('examSessionPreset').value;
+  const input  = document.getElementById('examSession');
+  if (preset !== 'custom') {
+    input.value = preset;
+  } else {
+    input.focus();
+    input.select();
+  }
+  updateHero();
+}
+
+// Shared formatter — returns "16 June 2026 · FN (9:30 AM – 11:30 AM)"
+function getExamDateTimeStr() {
+  const date = document.getElementById('examDate').value;
+  const session = document.getElementById('examSession').value;
+  const dateStr = date
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric'})
+    : 'Date not set';
+  return session ? `${dateStr} · ${session}` : dateStr;
+}
+
+// Compact version for table cells — "16-06-2026 / FN"
+function getExamDateTimeShort() {
+  const date = document.getElementById('examDate').value;
+  const session = document.getElementById('examSession').value;
+  const dateStr = date
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-IN', {day:'2-digit',month:'2-digit',year:'numeric'})
+    : '—';
+  const sessionShort = session ? (session.split(' ')[0] || session) : '—';
+  return `${dateStr} / ${sessionShort}`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROOM GRID — with inline bench-count editors
+// ═══════════════════════════════════════════════════════
+
+// Live layout overrides: {room: {col: benchCount}}
+// Starts as a deep copy of ROOMS_DATA layouts, edited inline
+const roomLayouts = {};
+ROOMS_DATA.forEach(r => {
+  roomLayouts[r.room] = Object.assign({}, r.layout);
+});
+
+function totalSeatsForRoom(room) {
+  const layout = roomLayouts[room] || {};
+  return Object.values(layout).reduce((a, b) => a + Number(b), 0) * 2;
+}
+
+function buildRoomGrid() {
+  const grid = document.getElementById('roomGrid');
+  grid.innerHTML = '';
+
+  // Group rooms by building in order of first appearance
+  const buildings = [];
+  const buildingMap = {};
+  ROOMS_DATA.forEach(r => {
+    if (!buildingMap[r.building]) {
+      buildingMap[r.building] = [];
+      buildings.push(r.building);
+    }
+    buildingMap[r.building].push(r);
+  });
+
+  const ICONS = {
+    'ICT Bhavan':        '🏢',
+    'Cotton Bhavan':     '🏛',
+    'Visweswara Bhavan': '🏫',
+  };
+
+  buildings.forEach((bldg, bi) => {
+    const rooms = buildingMap[bldg];
+    const totalSeatsInBldg = rooms.reduce((acc, r) => acc + totalSeatsForRoom(r.room), 0);
+    const selCount = rooms.filter(r => state.selectedRooms.has(r.room)).length;
+    const isOpen = bi === 0; // first building open by default
+
+    const accordion = document.createElement('div');
+    accordion.className = 'building-accordion';
+    accordion.dataset.building = bldg.toLowerCase();
+    accordion.innerHTML = `
+      <div class="building-header ${isOpen ? 'open' : ''}" id="bh_${bi}" onclick="toggleBuilding(${bi})">
+        <span class="bh-icon">${ICONS[bldg] || '🏢'}</span>
+        <span class="bh-name">${bldg}</span>
+        <span class="bh-stats">
+          <span id="bh_selcount_${bi}">${selCount}/${rooms.length} rooms</span>
+          <span id="bh_seatcount_${bi}">${totalSeatsInBldg} seats</span>
+        </span>
+        <span class="bh-chevron">▾</span>
+      </div>
+      <div class="building-rooms ${isOpen ? 'open' : ''}" id="br_${bi}">
+        <div class="building-sel-row">
+          <span id="bh_info_${bi}">${rooms.length} rooms · ${totalSeatsInBldg} seats</span>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectBuildingRooms('${bldg}',true)">Select All</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();selectBuildingRooms('${bldg}',false)">Deselect All</button>
+        </div>
+        <div class="room-grid" id="rg_${bi}"></div>
+      </div>`;
+    grid.appendChild(accordion);
+
+    // Build room chips inside this building section
+    const roomGrid = accordion.querySelector(`#rg_${bi}`);
+    rooms.forEach(r => {
+      const cols = Object.keys(r.layout).map(Number).sort((a,b)=>a-b);
+      const colInputsHtml = cols.map(col => `
+        <div class="col-input-group">
+          <label>C${col}</label>
+          <input type="number" class="col-bench-input"
+            id="bench_${r.room}_${col}"
+            min="1" max="30"
+            value="${r.layout[col]}"
+            onchange="onBenchChange('${r.room}',${col},this.value)"
+            onclick="event.stopPropagation()"
+            title="Column ${col} — number of benches">
+        </div>`).join('');
+
+      const chip = document.createElement('div');
+      chip.className = 'room-chip checked';
+      chip.dataset.room = r.room;
+      chip.dataset.building = r.building.toLowerCase();
+      chip.innerHTML = `
+        <div class="room-chip-header" onclick="toggleRoom('${r.room}',!document.getElementById('cb_${r.room}').checked)">
+          <input type="checkbox" id="cb_${r.room}" checked
+            onclick="event.stopPropagation();toggleRoom('${r.room}',this.checked)">
+          <div>
+            <div class="room-name">Room ${r.room}</div>
+            <div class="room-meta">${r.floor} · ${r.type} · ${r.dept}</div>
+          </div>
+          <span class="room-seat-count" id="seatcount_${r.room}">${totalSeatsForRoom(r.room)} seats</span>
+        </div>
+        <div class="room-layout-editor">
+          <div style="display:flex;align-items:center;margin-bottom:6px">
+            <span class="layout-title">Benches per column</span>
+            <button class="reset-layout-btn" onclick="resetLayout('${r.room}')" title="Reset to original">↺ reset</button>
+          </div>
+          <div class="col-inputs">${colInputsHtml}</div>
+        </div>`;
+      roomGrid.appendChild(chip);
+    });
+  });
+
+  updateStats();
+}
+
+function toggleBuilding(bi) {
+  document.getElementById(`bh_${bi}`).classList.toggle('open');
+  document.getElementById(`br_${bi}`).classList.toggle('open');
+}
+
+function selectBuildingRooms(building, val) {
+  ROOMS_DATA.filter(r => r.building === building).forEach(r => {
+    const cb   = document.getElementById(`cb_${r.room}`);
+    const chip = document.querySelector(`.room-chip[data-room="${r.room}"]`);
+    if (cb)   cb.checked = val;
+    if (chip) chip.classList.toggle('checked', val);
+    if (val)  state.selectedRooms.add(r.room);
+    else      state.selectedRooms.delete(r.room);
+  });
+  updateStats();
+  updateBuildingHeaders();
+}
+
+function updateBuildingHeaders() {
+  const buildings = [...new Set(ROOMS_DATA.map(r => r.building))];
+  buildings.forEach((bldg, bi) => {
+    const rooms     = ROOMS_DATA.filter(r => r.building === bldg);
+    const selCount  = rooms.filter(r => state.selectedRooms.has(r.room)).length;
+    const totalSeats= rooms.reduce((acc, r) => acc + totalSeatsForRoom(r.room), 0);
+    const selEl  = document.getElementById(`bh_selcount_${bi}`);
+    const seatEl = document.getElementById(`bh_seatcount_${bi}`);
+    const infoEl = document.getElementById(`bh_info_${bi}`);
+    if (selEl)  selEl.textContent  = `${selCount}/${rooms.length} rooms`;
+    if (seatEl) seatEl.textContent = `${totalSeats} seats`;
+    if (infoEl) infoEl.textContent = `${rooms.length} rooms · ${totalSeats} seats`;
+  });
+}
+
+function onBenchChange(room, col, value) {
+  const v = Math.max(1, Math.min(30, parseInt(value) || 1));
+  const inp = document.getElementById(`bench_${room}_${col}`);
+  if (inp) inp.value = v;
+  roomLayouts[room][col] = v;
+  const sc = document.getElementById(`seatcount_${room}`);
+  if (sc) sc.textContent = totalSeatsForRoom(room) + ' seats';
+  updateStats();
+}
+
+function resetLayout(room) {
+  const orig = ROOMS_DATA.find(r => r.room === room);
+  if (!orig) return;
+  Object.keys(orig.layout).forEach(col => {
+    roomLayouts[room][col] = orig.layout[col];
+    const inp = document.getElementById(`bench_${room}_${col}`);
+    if (inp) inp.value = orig.layout[col];
+  });
+  const sc = document.getElementById(`seatcount_${room}`);
+  if (sc) sc.textContent = totalSeatsForRoom(room) + ' seats';
+  updateStats();
+  showToast(`Room ${room} layout reset to defaults`);
+}
+
+function toggleRoom(room, checked) {
+  const cb = document.getElementById(`cb_${room}`);
+  if (cb) cb.checked = checked;
+  const chip = document.querySelector(`.room-chip[data-room="${room}"]`);
+  if (chip) chip.classList.toggle('checked', checked);
+  if (checked) state.selectedRooms.add(room);
+  else state.selectedRooms.delete(room);
+  updateStats();
+  updateBuildingHeaders();
+}
+
+function selectAllRooms(val) {
+  document.querySelectorAll('.room-chip').forEach(chip => {
+    if (chip.closest('.building-rooms') && chip.closest('.building-rooms').style.display === 'none') return;
+    if (chip.style.display === 'none') return;
+    const room = chip.dataset.room;
+    const cb = document.getElementById(`cb_${room}`);
+    if (cb) cb.checked = val;
+    chip.classList.toggle('checked', val);
+    if (val) state.selectedRooms.add(room);
+    else state.selectedRooms.delete(room);
+  });
+  updateStats();
+  updateBuildingHeaders();
+}
+
+function filterRooms() {
+  const q = document.getElementById('roomSearch').value.toLowerCase();
+  document.querySelectorAll('.building-accordion').forEach(acc => {
+    let anyVisible = false;
+    acc.querySelectorAll('.room-chip').forEach(chip => {
+      const match = !q ||
+        chip.dataset.room.toLowerCase().includes(q) ||
+        chip.dataset.building.includes(q);
+      chip.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+    acc.style.display = anyVisible ? '' : 'none';
+    // Auto-open matching building when searching
+    if (q && anyVisible) {
+      acc.querySelector('.building-rooms').classList.add('open');
+      acc.querySelector('.building-header').classList.add('open');
+    }
+  });
+}
+
+function updateStats() {
+  const selRooms = ROOMS_DATA.filter(r => state.selectedRooms.has(r.room));
+  const totalSeats = selRooms.reduce((acc, r) => acc + totalSeatsForRoom(r.room), 0);
+  const seated = state.seating.length;
+  document.getElementById('st-rooms').textContent  = state.selectedRooms.size;
+  document.getElementById('st-s1').textContent     = state.slot1.length;
+  document.getElementById('st-s2').textContent     = state.slot2.length;
+  document.getElementById('st-seats').textContent  = totalSeats;
+  document.getElementById('st-seated').textContent = seated || '—';
+  document.getElementById('st-vacant').textContent = seated
+    ? Math.max(0, totalSeats - seated) : '—';
+  document.getElementById('room-sel-stats').textContent =
+    `${state.selectedRooms.size} of ${ROOMS_DATA.length} rooms selected · ${totalSeats} total seats`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADD NEW ROOM MODAL
+// ═══════════════════════════════════════════════════════
+
+function openAddRoomModal() {
+  document.getElementById('newRoomNumber').value   = '';
+  document.getElementById('newRoomBuilding').value = '';
+  document.getElementById('newRoomFloor').value    = '';
+  document.getElementById('newRoomDept').value     = '';
+  document.getElementById('newRoomType').value     = 'Gallery';
+  document.getElementById('newRoomCols').value     = 4;
+  document.getElementById('newRoomError').style.display = 'none';
+  renderNewRoomColInputs();
+  document.getElementById('addRoomModalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('newRoomNumber').focus(), 50);
+}
+
+function closeAddRoomModal(e) {
+  if (e && e.target !== document.getElementById('addRoomModalBackdrop')) return;
+  document.getElementById('addRoomModalBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function renderNewRoomColInputs() {
+  let n = parseInt(document.getElementById('newRoomCols').value) || 1;
+  n = Math.max(1, Math.min(8, n));
+  document.getElementById('newRoomCols').value = n;
+
+  const wrap = document.getElementById('newRoomColInputs');
+  // Preserve existing values where possible
+  const existing = {};
+  wrap.querySelectorAll('.col-bench-input').forEach((inp, i) => {
+    existing[i + 1] = inp.value;
+  });
+
+  let html = '';
+  for (let c = 1; c <= n; c++) {
+    const val = existing[c] || 6;
+    html += `
+      <div class="col-input-group">
+        <label>C${c}</label>
+        <input type="number" class="col-bench-input" id="newRoomBench_${c}"
+          min="1" max="30" value="${val}" title="Column ${c} — number of benches">
+      </div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function submitNewRoom() {
+  const errEl = document.getElementById('newRoomError');
+  errEl.style.display = 'none';
+
+  const roomNum = document.getElementById('newRoomNumber').value.trim();
+  if (!roomNum) {
+    errEl.textContent = '⚠ Room Number is required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const dup = ROOMS_DATA.some(r => r.room.toLowerCase() === roomNum.toLowerCase());
+  if (dup) {
+    errEl.textContent = `⚠ Room "${roomNum}" already exists. Choose a different number.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const building = document.getElementById('newRoomBuilding').value.trim() || 'Main Block';
+  const floor    = document.getElementById('newRoomFloor').value.trim() || 'Ground';
+  const type     = document.getElementById('newRoomType').value;
+  const dept     = document.getElementById('newRoomDept').value.trim();
+
+  const numCols = parseInt(document.getElementById('newRoomCols').value) || 1;
+  const layout = {};
+  for (let c = 1; c <= numCols; c++) {
+    const inp = document.getElementById(`newRoomBench_${c}`);
+    const val = Math.max(1, Math.min(30, parseInt(inp ? inp.value : 6) || 6));
+    layout[String(c)] = val;
+  }
+
+  const newRoom = { room: roomNum, building, floor, type, dept, layout };
+  ROOMS_DATA.push(newRoom);
+  roomLayouts[roomNum] = Object.assign({}, layout);
+  state.selectedRooms.add(roomNum);
+
+  buildRoomGrid();
+  updateHero();
+  closeAddRoomModal();
+  showToast(`✅ Room ${roomNum} added (${numCols} columns, ${totalSeatsForRoom(roomNum)} seats)`);
+
+  // Scroll new room into view
+  setTimeout(() => {
+    const chip = document.querySelector(`.room-chip[data-room="${roomNum}"]`);
+    if (chip) chip.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+// ═══════════════════════════════════════════════════════
+//  STUDENT IMPORT
+// ═══════════════════════════════════════════════════════
+function onDragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('dragover'); }
+function onDragLeave(id) { document.getElementById(id).classList.remove('dragover'); }
+function onDrop(e, slot) {
+  e.preventDefault();
+  document.getElementById('dz' + slot).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) parseStudentFile(file, slot);
+}
+function loadStudents(e, slot) {
+  const file = e.target.files[0];
+  if (file) parseStudentFile(file, slot);
+}
+
+const COL_MAP = {
+  'registration number':'reg','reg no':'reg','registration no':'reg',
+  'regno':'reg','roll no':'reg','roll number':'reg',
+  'student name':'name','name':'name','student':'name',
+  'branch':'branch','dept':'branch','department':'branch',
+  'semester':'semester','sem':'semester',
+  'course code':'courseCode','course_code':'courseCode','coursecode':'courseCode',
+  'course name':'courseName','course_name':'courseName','coursename':'courseName',
+  'faculty id':'facultyId','faculty_id':'facultyId','facultyid':'facultyId',
+  'faculty name':'facultyName','faculty_name':'facultyName',
+};
+
+function parseStudentFile(file, slot) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (rows.length < 2) { showToast('File appears empty'); return; }
+      let hdrIdx = 0;
+      for (let i = 0; i < Math.min(5, rows.length); i++) {
+        if (rows[i].some(c => c && COL_MAP[String(c).toLowerCase().trim()])) { hdrIdx = i; break; }
+      }
+      const headers = rows[hdrIdx].map(h => String(h || '').toLowerCase().trim());
+      const colIdx = {};
+      headers.forEach((h, i) => { if (COL_MAP[h]) colIdx[COL_MAP[h]] = i; });
+      const students = [];
+      const seen = new Set();
+      let skipped = 0;
+      for (let r = hdrIdx + 1; r < rows.length; r++) {
+        const row = rows[r];
+        const reg = String(row[colIdx.reg] || '').trim();
+        if (!reg || seen.has(reg)) { skipped++; continue; }
+        seen.add(reg);
+        students.push({
+          reg, slot,
+          name:        String(row[colIdx.name]        || '').trim(),
+          branch:      String(row[colIdx.branch]      || '').trim(),
+          semester:    String(row[colIdx.semester]    || '').trim(),
+          courseCode:  String(row[colIdx.courseCode]  || '').trim(),
+          courseName:  String(row[colIdx.courseName]  || '').trim(),
+          facultyId:   String(row[colIdx.facultyId]   || '').trim(),
+          facultyName: String(row[colIdx.facultyName] || '').trim(),
+        });
+      }
+      if (slot === 1) state.slot1 = students;
+      else state.slot2 = students;
+      const statusEl = document.getElementById(`s${slot}-status`);
+      statusEl.innerHTML = `✅ <strong>${students.length}</strong> students loaded${skipped ? ` · ${skipped} skipped` : ''}`;
+      statusEl.style.color = 'var(--s1b)';
+      document.getElementById('dz' + slot).querySelector('p').textContent =
+        `${students.length} students from ${file.name}`;
+      updateStats();
+      showToast(`Slot ${slot}: ${students.length} students loaded`);
+    } catch(err) { showToast('Error reading file: ' + err.message, true); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SEATING ALGORITHM
+// ═══════════════════════════════════════════════════════
+function generateSeating() {
+  const sel = ROOMS_DATA.filter(r => state.selectedRooms.has(r.room));
+  if (!sel.length) { showToast('Select at least one room', true); return; }
+  if (!state.slot1.length && !state.slot2.length) { showToast('Import students first', true); return; }
+  const prog = document.getElementById('genProgress');
+  const bar  = document.getElementById('genBar');
+  prog.style.display = 'block';
+  bar.style.width = '0%';
+  setTimeout(() => {
+    bar.style.width = '30%';
+    setTimeout(() => {
+      try {
+        // Use live roomLayouts (which may have been edited by coordinator)
+        const selWithLayout = sel.map(r => ({...r, layout: roomLayouts[r.room] || r.layout}));
+        const singleSeat  = document.getElementById('singleSeatMode').checked;
+        const diffCourse  = document.getElementById('diffCourseMode').checked;
+        state.seating = runAlgorithm(selWithLayout, state.slot1, state.slot2, singleSeat, diffCourse);
+        bar.style.width = '100%';
+        setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 600);
+        updateStats();
+        populateListRoomFilter();
+        document.getElementById('printBtn').style.display = '';
+        showToast(`✅ ${state.seating.length} students seated`);
+      } catch(e) { showToast('Error: ' + e.message, true); prog.style.display = 'none'; }
+    }, 200);
+  }, 50);
+}
+
+function runAlgorithm(rooms, s1raw, s2raw, singleSeat = false, diffCourse = true) {
+  // Interleave by branch so no two consecutive students share the same branch
+  function interleaveByBranch(arr) {
+    const byBranch = {};
+    arr.forEach(s => { const b = s.branch || 'X'; if (!byBranch[b]) byBranch[b] = []; byBranch[b].push(s); });
+    const queues = Object.values(byBranch);
+    const out = [];
+    while (queues.some(q => q.length)) { queues.forEach(q => { if (q.length) out.push(q.shift()); }); }
+    return out;
+  }
+
+  // Further interleave by course code within each slot queue
+  function interleaveByCourse(arr) {
+    const byCourse = {};
+    arr.forEach(s => { const c = s.courseCode || 'NONE'; if (!byCourse[c]) byCourse[c] = []; byCourse[c].push(s); });
+    const queues = Object.values(byCourse);
+    const out = [];
+    while (queues.some(q => q.length)) { queues.forEach(q => { if (q.length) out.push(q.shift()); }); }
+    return out;
+  }
+
+  // Build queues: interleave branch first, then by course code
+  let s1 = interleaveByCourse(interleaveByBranch([...s1raw]));
+  let s2 = interleaveByCourse(interleaveByBranch([...s2raw]));
+
+  const result = [];
+
+  if (singleSeat) {
+    // ── SINGLE SEAT MODE: one student per bench (pos=1 only) ──────────────
+    // Merge both slots alternating: s1, s2, s1, s2 ...
+    const merged = [];
+    let i1 = 0, i2 = 0;
+    while (i1 < s1.length || i2 < s2.length) {
+      if (i1 < s1.length) merged.push(s1[i1++]);
+      if (i2 < s2.length) merged.push(s2[i2++]);
+    }
+    let qi = 0;
+    for (const room of rooms) {
+      const cols = Object.keys(room.layout).map(Number).sort((a,b)=>a-b);
+      for (const col of cols) {
+        const benches = room.layout[col];
+        for (let bench = 1; bench <= benches; bench++) {
+          if (qi >= merged.length) break;
+          const student = merged[qi++];
+          result.push({
+            reg: student.reg, name: student.name, branch: student.branch,
+            semester: student.semester, courseCode: student.courseCode,
+            courseName: student.courseName, slot: student.slot,
+            room: room.room, building: room.building, floor: room.floor,
+            col, bench, pos: 1,
+            code: `Room${room.room}-C${col}-B${bench}-S1`
+          });
+          // pos=2 deliberately left empty (single seat mode)
+        }
+      }
+    }
+    return result;
+  }
+
+  // ── DOUBLE SEAT MODE (default) ────────────────────────────────────────
+  // Build mutable arrays we can look ahead into when diffCourse is on
+  const q1 = [...s1];   // Slot 1 pool
+  const q2 = [...s2];   // Slot 2 pool
+
+  function pickFromQueue(queue, excludeCourse) {
+    if (!queue.length) return null;
+    if (!diffCourse || !excludeCourse) {
+      return queue.shift();
+    }
+    // Find first student in queue whose courseCode differs from excludeCourse
+    const idx = queue.findIndex(s => (s.courseCode || '') !== excludeCourse);
+    if (idx === -1) {
+      // All remaining students share the same course — just take the next one
+      return queue.shift();
+    }
+    return queue.splice(idx, 1)[0];
+  }
+
+  for (const room of rooms) {
+    const cols = Object.keys(room.layout).map(Number).sort((a,b)=>a-b);
+    for (const col of cols) {
+      const benches = room.layout[col];
+      for (let bench = 1; bench <= benches; bench++) {
+
+        // Seat 1 (S1, pos=1) — prefer from Slot 1 queue
+        let seat1Student = null;
+        if (q1.length) seat1Student = q1.shift();
+        else if (q2.length) seat1Student = pickFromQueue(q2, null);
+
+        // Seat 2 (S2, pos=2) — prefer from Slot 2 queue, avoid same course as seat1
+        const s1Course = seat1Student ? (seat1Student.courseCode || '') : null;
+        let seat2Student = null;
+        if (q2.length) seat2Student = pickFromQueue(q2, diffCourse ? s1Course : null);
+        else if (q1.length) seat2Student = pickFromQueue(q1, diffCourse ? s1Course : null);
+
+        for (const [student, pos] of [[seat1Student, 1], [seat2Student, 2]]) {
+          if (!student) continue;
+          result.push({
+            reg: student.reg, name: student.name, branch: student.branch,
+            semester: student.semester, courseCode: student.courseCode,
+            courseName: student.courseName, slot: student.slot,
+            room: room.room, building: room.building, floor: room.floor,
+            col, bench, pos,
+            code: `Room${room.room}-C${col}-B${bench}-S${pos}`
+          });
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════
+//  SEATING GRID RENDER
+// ═══════════════════════════════════════════════════════
+function buildSeatIndex() {
+  const idx = {};
+  state.seating.forEach(s => {
+    if (!idx[s.room]) idx[s.room] = {};
+    if (!idx[s.room][s.col]) idx[s.room][s.col] = {};
+    if (!idx[s.room][s.col][s.bench]) idx[s.room][s.col][s.bench] = {};
+    idx[s.room][s.col][s.bench][s.pos] = s;
+  });
+  return idx;
+}
+
+function renderSeatingGrid(filterRoom = '') {
+  const container = document.getElementById('seatingGridContainer');
+  if (!state.seating.length) {
+    container.innerHTML = `<div class="empty-state">
+      <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <div>No seating generated yet.</div><div class="text-muted">Go to Setup → Generate Seating</div></div>`;
+    return;
+  }
+  const idx = buildSeatIndex();
+  const fr = filterRoom.toLowerCase();
+  const roomsToShow = ROOMS_DATA.filter(r =>
+    state.selectedRooms.has(r.room) && idx[r.room] &&
+    (!fr || r.room.toLowerCase().includes(fr))
+  );
+  if (!roomsToShow.length) {
+    container.innerHTML = `<div class="empty-state">No rooms match your filter.</div>`;
+    return;
+  }
+  container.innerHTML = roomsToShow.map(room => buildRoomBlock(room, idx)).join('');
+}
+
+function buildRoomBlock(room, idx) {
+  const roomData = idx[room.room] || {};
+  const lyt  = roomLayouts[room.room] || room.layout;
+  const cols = Object.keys(lyt).map(Number).sort((a,b)=>a-b);
+  const s1cnt = state.seating.filter(s => s.room === room.room && s.slot === 1).length;
+  const s2cnt = state.seating.filter(s => s.room === room.room && s.slot === 2).length;
+
+  const colsHtml = cols.map(col => {
+    const benches = lyt[col];
+    const colData = roomData[col] || {};
+    const benchRows = Array.from({length: benches}, (_, i) => {
+      const b = i + 1;
+      const benchData = colData[b] || {};
+      const s1 = benchData[1];
+      const s2 = benchData[2];
+      const isSingle = document.getElementById('singleSeatMode')?.checked;
+      const s1inner = s1
+        ? `<span class="seat-reg">${s1.reg}</span><span class="seat-course">${s1.courseCode||''}</span>`
+        : `<span style="font-size:10px;font-style:italic;opacity:.4">—</span>`;
+      const s2inner = s2
+        ? `<span class="seat-reg">${s2.reg}</span><span class="seat-course">${s2.courseCode||''}</span>`
+        : isSingle
+          ? `<span style="font-size:9px">Single seat</span>`
+          : `<span style="font-size:10px;font-style:italic;opacity:.4">—</span>`;
+      const s2cls = s2 ? 's2' : (isSingle ? 'reserved' : 'empty');
+      return `<div class="bench-row">
+        <div class="bench-lbl">B${b}</div>
+        <div class="seat-cell ${s1?'s1':'empty'}" title="${s1?s1.reg+' · '+s1.name+' · '+(s1.courseCode||''):''}">${s1inner}</div>
+        <div class="seat-cell ${s2cls}" title="${s2?s2.reg+' · '+s2.name+' · '+(s2.courseCode||''):''}">${s2inner}</div>
+      </div>`;
+    }).join('');
+    return `<div class="col-block">
+      <div class="col-header">Column ${col}</div>
+      <div class="seat-subheader">
+        <div class="bench-lbl-h">B#</div>
+        <div>S1 ←</div>
+        <div>→ S2</div>
+      </div>
+      ${benchRows}
+    </div>`;
+  }).join('');
+
+  return `<div class="room-block" data-room="${room.room}">
+    <div class="room-header">
+      <div class="room-header-left">
+        <span class="rnum">Room ${room.room}</span>
+        <span class="rmeta">${room.building} · ${room.floor} Floor · ${room.type}</span>
+        <span class="rmeta room-datetime">📅 ${getExamDateTimeStr()}</span>
+      </div>
+      <div class="room-header-counts">
+        <span class="pill pill-s1">S1: ${s1cnt}</span>
+        <span class="pill pill-s2">S2: ${s2cnt}</span>
+        <span style="opacity:.7">Total: ${s1cnt+s2cnt}</span>
+        <button class="edit-btn" onclick="openEditModal('${room.room}')">✏ Edit Seats</button>
+      </div>
+    </div>
+    <div class="cols-wrapper">${colsHtml}</div>
+  </div>`;
+}
+
+function filterSeatingView() {
+  renderSeatingGrid(document.getElementById('seatingRoomFilter').value);
+}
+
+// ═══════════════════════════════════════════════════════
+//  EDIT MODAL — open, build UI, save
+// ═══════════════════════════════════════════════════════
+
+// Get all students as lookup map
+function allStudentsMap() {
+  const map = {};
+  [...state.slot1, ...state.slot2].forEach(s => { map[s.reg] = s; });
+  return map;
+}
+
+// All regs currently in seating for a room
+function seatedRegsInRoom(room) {
+  return new Set(state.seating.filter(s => s.room === room).map(s => s.reg));
+}
+
+// All regs seated across ALL rooms
+function allSeatedRegs() {
+  return new Set(state.seating.map(s => s.reg));
+}
+
+function openEditModal(roomNum) {
+  if (!state.seating.length) { showToast('Generate seating first', true); return; }
+  const room = ROOMS_DATA.find(r => r.room === roomNum);
+  if (!room) return;
+
+  editState.room = roomNum;
+  editState.drafts = {};
+
+  // Seed drafts from current seating
+  state.seating.filter(s => s.room === roomNum).forEach(s => {
+    editState.drafts[`${s.col}_${s.bench}_${s.pos}`] = s.reg;
+  });
+
+  document.getElementById('editModalTitle').textContent = `Edit Seats — Room ${roomNum}`;
+  buildEditModalBody(room);
+  document.getElementById('editModalBackdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function buildEditModalBody(room) {
+  const body   = document.getElementById('editModalBody');
+  const stuMap = allStudentsMap();
+  const allSeated = allSeatedRegs();
+
+  // Build option list: all students, label showing if seated elsewhere
+  function optionsFor(currentReg, col, bench, pos) {
+    const slotPref = pos; // prefer slot matching pos
+    const allStudents = [...state.slot1, ...state.slot2].sort((a,b) =>
+      a.reg.localeCompare(b.reg));
+
+    let opts = `<option value="">— empty seat —</option>`;
+    allStudents.forEach(s => {
+      const isHere = editState.drafts[`${col}_${bench}_${pos}`] === s.reg;
+      const seatedElsewhere = allSeated.has(s.reg) && !isHere &&
+        !Object.values(editState.drafts).includes(s.reg) === false;
+
+      // Check if this reg is used in any draft slot OTHER than current
+      const usedInDraft = Object.entries(editState.drafts).some(([k, v]) =>
+        v === s.reg && k !== `${col}_${bench}_${pos}`
+      );
+
+      const selected = currentReg === s.reg ? 'selected' : '';
+      const slotLabel = s.slot === 1 ? '🟢 S1' : '🟡 S2';
+      const usedMark  = usedInDraft ? ' ⚠ (already placed)' : '';
+      opts += `<option value="${s.reg}" ${selected}>${slotLabel} ${s.reg} — ${s.name}${usedMark}</option>`;
+    });
+    return opts;
+  }
+
+  const lyt2  = roomLayouts[room.room] || room.layout;
+  const cols = Object.keys(lyt2).map(Number).sort((a,b)=>a-b);
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:16px;padding:10px 12px;background:var(--sky);border-radius:6px;border:1px solid var(--border)">
+    <strong>How to edit:</strong> Use the dropdowns to reassign any seat. 
+    Choose <em>— empty seat —</em> to leave a bench vacant. 
+    Warnings show if a student is placed twice. Click <strong>Save Changes</strong> when done.
+  </div>`;
+
+  cols.forEach(col => {
+    const benches = lyt2[col];
+    html += `<div class="modal-col-block">
+      <div class="modal-col-title">Column ${col}</div>`;
+    for (let b = 1; b <= benches; b++) {
+      const k1 = `${col}_${b}_1`, k2 = `${col}_${b}_2`;
+      const reg1 = editState.drafts[k1] || '';
+      const reg2 = editState.drafts[k2] || '';
+      const s1class = reg1 ? 's1-sel' : 'empty-sel';
+      const s2class = reg2 ? 's2-sel' : 'empty-sel';
+      html += `<div class="modal-bench-row">
+        <div class="modal-bench-lbl">B${b}</div>
+        <select class="seat-select ${s1class}" data-key="${k1}"
+          onchange="onDraftChange(this,'${k1}','${col}','${b}','1')">
+          ${optionsFor(reg1, col, b, 1)}
+        </select>
+        <select class="seat-select ${s2class}" data-key="${k2}"
+          onchange="onDraftChange(this,'${k2}','${col}','${b}','2')">
+          ${optionsFor(reg2, col, b, 2)}
+        </select>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+function onDraftChange(selectEl, key, col, bench, pos) {
+  const newReg = selectEl.value;
+
+  // Warn if student already placed elsewhere in this room's draft
+  if (newReg) {
+    const conflict = Object.entries(editState.drafts).find(([k, v]) => v === newReg && k !== key);
+    if (conflict) {
+      showToast(`⚠ ${newReg} is already in slot ${conflict[0].replace(/_/g,' ')}`, true);
+    }
+  }
+
+  editState.drafts[key] = newReg;
+
+  // Update select colour
+  selectEl.className = `seat-select ${newReg ? (pos==='1' ? 's1-sel' : 's2-sel') : 'empty-sel'}`;
+}
+
+function applyRoomEdits() {
+  const room = editState.room;
+  const stuMap = allStudentsMap();
+
+  // Validate: no student placed twice in this room
+  const vals = Object.values(editState.drafts).filter(Boolean);
+  const dupes = vals.filter((v, i, a) => a.indexOf(v) !== i);
+  if (dupes.length) {
+    showToast(`❌ Duplicate: ${dupes.join(', ')} placed in 2 seats. Fix before saving.`, true);
+    return;
+  }
+
+  // Remove existing seating for this room
+  state.seating = state.seating.filter(s => s.room !== room);
+
+  // Add new seating from drafts
+  const roomData = ROOMS_DATA.find(r => r.room === room);
+  Object.entries(editState.drafts).forEach(([key, reg]) => {
+    if (!reg) return;
+    const [col, bench, pos] = key.split('_').map(Number);
+    const stu = stuMap[reg];
+    if (!stu) return;
+    state.seating.push({
+      reg: stu.reg, name: stu.name, branch: stu.branch,
+      semester: stu.semester, courseCode: stu.courseCode,
+      courseName: stu.courseName, slot: stu.slot,
+      room, building: roomData.building, floor: roomData.floor,
+      col, bench, pos,
+      code: `Room${room}-C${col}-B${bench}-S${pos}`
+    });
+  });
+
+  closeEditModal();
+  updateStats();
+  renderSeatingGrid(document.getElementById('seatingRoomFilter').value);
+  populateListRoomFilter();
+  showToast(`✅ Room ${room} seating updated`);
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('editModalBackdrop')) return;
+  document.getElementById('editModalBackdrop').classList.remove('open');
+  document.body.style.overflow = '';
+  editState = { room: null, drafts: {} };
+}
+
+// ═══════════════════════════════════════════════════════
+//  SEARCH
+// ═══════════════════════════════════════════════════════
+function liveSearch() {
+  const q = document.getElementById('searchInput').value.trim().toUpperCase();
+  const resultEl = document.getElementById('searchResult');
+  const notFound = document.getElementById('searchNotFound');
+  resultEl.classList.remove('show');
+  notFound.style.display = 'none';
+  if (!q) return;
+  const seat = state.seating.find(s => s.reg.toUpperCase() === q);
+  if (!seat) { notFound.style.display = 'block'; return; }
+  const date = document.getElementById('examDate').value;
+  const session = document.getElementById('examSession').value;
+  const dateStr = date
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-IN', {day:'numeric',month:'long',year:'numeric'})
+    : '—';
+  resultEl.innerHTML = `
+    <div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px">✅ Seat Found</div>
+    <div class="result-grid">
+      <div class="result-row"><span class="rkey">Registration No</span><span class="rval">${seat.reg}</span></div>
+      <div class="result-row"><span class="rkey">Name</span><span class="rval">${seat.name||'—'}</span></div>
+      <div class="result-row"><span class="rkey">Branch</span><span class="rval">${seat.branch||'—'}</span></div>
+      <div class="result-row"><span class="rkey">Semester</span><span class="rval">${seat.semester||'—'}</span></div>
+      <div class="result-row"><span class="rkey">Slot</span><span class="rval"><span class="tag tag-s${seat.slot}">Slot ${seat.slot}</span></span></div>
+      <div class="result-row"><span class="rkey">Exam Date</span><span class="rval">${dateStr}</span></div>
+      <div class="result-row"><span class="rkey">Session</span><span class="rval">${session}</span></div>
+      <div class="result-row"><span class="rkey">Building</span><span class="rval">${seat.building}</span></div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="rkey" style="margin-bottom:6px">YOUR SEAT</div>
+      <div class="seat-badge">Room ${seat.room} · Column ${seat.col} · Bench ${seat.bench} · Seat ${seat.pos===1?'Left (S1)':'Right (S2)'}</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--muted);margin-top:6px">${seat.code}</div>
+    </div>`;
+  resultEl.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════
+//  LIST / TABLE
+// ═══════════════════════════════════════════════════════
+function populateListRoomFilter() {
+  const sel = document.getElementById('listRoomFilter');
+  const rooms = [...new Set(state.seating.map(s => s.room))].sort();
+  sel.innerHTML = '<option value="">All Rooms</option>' +
+    rooms.map(r => `<option value="${r}">Room ${r}</option>`).join('');
+}
+
+function renderList() {
+  const tbody = document.getElementById('seatingTableBody');
+  const emptyEl = document.getElementById('listEmpty');
+  const countEl = document.getElementById('listCount');
+  if (!state.seating.length) {
+    tbody.innerHTML = ''; emptyEl.style.display = 'block'; countEl.textContent = 'No seating generated'; return;
+  }
+  emptyEl.style.display = 'none';
+  countEl.textContent = `${state.seating.length} students seated`;
+  filterList();
+}
+
+function filterList() {
+  const q    = document.getElementById('listSearch').value.toLowerCase();
+  const slot = document.getElementById('listSlotFilter').value;
+  const room = document.getElementById('listRoomFilter').value;
+  const tbody = document.getElementById('seatingTableBody');
+  const filtered = state.seating.filter(s =>
+    (!slot || String(s.slot) === slot) &&
+    (!room || s.room === room) &&
+    (!q || s.reg.toLowerCase().includes(q) ||
+           (s.name && s.name.toLowerCase().includes(q)) ||
+           s.room.toLowerCase().includes(q) ||
+           (s.courseCode && s.courseCode.toLowerCase().includes(q)) ||
+           (s.branch && s.branch.toLowerCase().includes(q)))
+  );
+  document.getElementById('listCount').textContent = `${filtered.length} of ${state.seating.length} students`;
+  const dateTimeShort = getExamDateTimeShort();
+  tbody.innerHTML = filtered.map((s, i) =>
+    `<tr>
+      <td>${i+1}</td>
+      <td><strong>${s.reg}</strong></td>
+      <td>${s.name||'—'}</td>
+      <td>${s.branch||'—'}</td>
+      <td>${s.courseCode||'—'}</td>
+      <td>${s.semester||'—'}</td>
+      <td><span class="tag tag-s${s.slot}">Slot ${s.slot}</span></td>
+      <td>Room ${s.room}</td>
+      <td>C${s.col}</td>
+      <td>B${s.bench}</td>
+      <td>S${s.pos}</td>
+      <td><code style="font-size:11px;background:#eef6f5;padding:2px 5px;border-radius:3px">${s.code}</code></td>
+      <td style="white-space:nowrap">${dateTimeShort}</td>
+    </tr>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXCEL EXPORT
+// ═══════════════════════════════════════════════════════
+function exportExcel() {
+  if (!state.seating.length) { showToast('Generate seating first', true); return; }
+  const wb = XLSX.utils.book_new();
+  const examName = document.getElementById('examName').value;
+  const examDate = document.getElementById('examDate').value;
+  const session  = document.getElementById('examSession').value;
+  const allRows  = [['#','Reg No','Student Name','Branch','Semester','Slot','Room','Building','Floor','Column','Bench','Seat','Seat Code','Exam Date','Session']];
+  state.seating.forEach((s, i) => {
+    allRows.push([i+1,s.reg,s.name,s.branch,s.semester,'Slot '+s.slot,'Room '+s.room,s.building,s.floor,'C'+s.col,'B'+s.bench,'S'+s.pos,s.code,examDate,session]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(allRows), 'All Students');
+  const roomRooms = [...new Set(state.seating.map(s => s.room))].sort();
+  const roomRows  = [['Room','Building','Floor','Col','Bench','Seat 1 (S1) Reg','Seat 1 Name','Seat 1 Course','Seat 2 (S2) Reg','Seat 2 Name','Seat 2 Course']];
+  roomRooms.forEach(rno => {
+    const room = ROOMS_DATA.find(r => r.room === rno);
+    if (!room) return;
+    const idx = {};
+    state.seating.filter(s => s.room === rno).forEach(s => {
+      const k = `${s.col}-${s.bench}`; if (!idx[k]) idx[k] = {}; idx[k][s.pos] = s;
+    });
+    Object.entries(idx).sort().forEach(([k, seats]) => {
+      const [col, bench] = k.split('-');
+      roomRows.push(['Room '+rno,room.building,room.floor,'C'+col,'B'+bench,
+        seats[1]?.reg||'',seats[1]?.name||'',seats[1]?.courseCode||'',
+        seats[2]?.reg||'',seats[2]?.name||'',seats[2]?.courseCode||'']);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(roomRows), 'Room-wise');
+  const attRows = [['S.No.','Reg No','Student Name','Branch','Seat Code','Slot','Signature']];
+  state.seating.forEach((s, i) => { attRows.push([i+1,s.reg,s.name,s.branch,s.code,'Slot '+s.slot,'']); });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(attRows), 'Attendance');
+  XLSX.writeFile(wb, `SeatingPlan_${examName.replace(/\s+/g,'_')}_${examDate||'nodate'}.xlsx`);
+  showToast('Excel exported ✅');
+}
+
+// ═══════════════════════════════════════════════════════
+//  PRINT
+// ═══════════════════════════════════════════════════════
+function printSeating() {
+  if (!state.seating.length) { showToast('Generate seating first', true); return; }
+  renderSeatingGrid();
+  switchTab('seating');
+  setTimeout(() => window.print(), 300);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#b91c1c' : 'var(--navy)';
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+
+<footer style="
+  text-align:center;
+  padding:14px 24px;
+  font-size:12px;
+  color:#fff;
+  background:var(--navy);
+  border-top:2px solid var(--blue);
+  letter-spacing:.3px;
+">
+  Designed by <strong style="color:var(--mid)">Kondamudi Srichandan</strong>
+  &nbsp;·&nbsp; GITAM Exam Seating Arrangement System
+  &nbsp;·&nbsp; <span style="opacity:.6">© 2025 GITAM Deemed to be University</span>
+</footer>
+
+</body>
+</html>
